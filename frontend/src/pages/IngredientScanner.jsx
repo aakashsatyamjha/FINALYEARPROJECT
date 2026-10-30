@@ -285,27 +285,27 @@ export default function IngredientScanner({ onAnalyze, loading }) {
       <div className="glass-card rounded-2xl p-6 flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <div className="flex items-center gap-2 mb-1">
-            <span className="text-xs font-bold uppercase tracking-wider text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 px-2.5 py-0.5 rounded-lg border border-emerald-500/20">
+            <span className="text-xs font-bold uppercase tracking-wider text-emerald-600 bg-emerald-500/10 px-2.5 py-0.5 rounded-lg border border-emerald-500/20">
               Module 02
             </span>
             <span className="text-xs text-slate-400">•</span>
-            <span className="text-xs text-slate-500 dark:text-slate-400 font-medium">Computer Vision & OCR</span>
+            <span className="text-xs text-slate-500 font-medium">Computer Vision & OCR</span>
           </div>
-          <h1 className="text-2xl font-bold text-slate-900 dark:text-white tracking-tight">
+          <h1 className="text-2xl font-bold text-slate-900 tracking-tight">
             Ingredient Label Scanner & OCR
           </h1>
-          <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 mt-1">
+          <p className="text-xs sm:text-sm text-slate-500 mt-1">
             Capture a live camera photo or upload an image of any food ingredient label to extract text and analyze for adulterants.
           </p>
         </div>
 
-        <div className="flex items-center gap-1 bg-slate-100 dark:bg-slate-800/80 p-1 rounded-xl border border-slate-200 dark:border-white/10 shrink-0">
+        <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-xl border border-slate-200 shrink-0">
           <button
             onClick={() => { setMode('camera'); retakeImage(); }}
             className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-colors cursor-pointer ${
               mode === 'camera'
-                ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-xs'
-                : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+                ? 'bg-white text-slate-900 shadow-xs'
+                : 'text-slate-600 hover:text-slate-900'
             }`}
           >
             <Camera className="w-3.5 h-3.5" />
@@ -316,8 +316,8 @@ export default function IngredientScanner({ onAnalyze, loading }) {
             onClick={() => { setMode('upload'); retakeImage(); }}
             className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-colors cursor-pointer ${
               mode === 'upload'
-                ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-xs'
-                : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+                ? 'bg-white text-slate-900 shadow-xs'
+                : 'text-slate-600 hover:text-slate-900'
             }`}
           >
             <Upload className="w-3.5 h-3.5" />
@@ -332,13 +332,13 @@ export default function IngredientScanner({ onAnalyze, loading }) {
         {/* Left Column (5 cols): Visual Capture Card */}
         <div className="lg:col-span-5 glass-card rounded-2xl p-6 space-y-4">
           <div className="flex items-center justify-between">
-            <h2 className="font-bold text-slate-900 dark:text-white text-base">
+            <h2 className="font-bold text-slate-900 text-base">
               {mode === 'camera' ? 'Live Camera Capture' : 'Label Image Upload'}
             </h2>
             {imageSrc && (
               <button
                 onClick={retakeImage}
-                className="text-xs text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white font-semibold flex items-center gap-1 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 px-2.5 py-1 rounded-lg transition-colors cursor-pointer"
+                className="text-xs text-slate-600 hover:text-slate-900 font-semibold flex items-center gap-1 bg-slate-100 hover:bg-slate-200 px-2.5 py-1 rounded-lg transition-colors cursor-pointer"
               >
                 <RefreshCw className="w-3 h-3" />
                 <span>Retake</span>
@@ -347,7 +347,7 @@ export default function IngredientScanner({ onAnalyze, loading }) {
           </div>
 
           {/* Visual Container */}
-          <div className="w-full rounded-2xl overflow-hidden bg-slate-950 border border-slate-200 dark:border-white/10 relative aspect-4/3 flex items-center justify-center text-white">
+          <div className="w-full rounded-2xl overflow-hidden bg-slate-950 border border-slate-200 relative aspect-4/3 flex items-center justify-center text-white">
             
             {/* 1. Live Camera Stream */}
             {mode === 'camera' && !imageSrc && !cameraError && (
@@ -454,7 +454,7 @@ export default function IngredientScanner({ onAnalyze, loading }) {
           {mode === 'upload' && !imageSrc && (
             <button
               onClick={() => fileInputRef.current?.click()}
-              className="w-full py-3 px-4 rounded-xl bg-slate-900 dark:bg-white hover:bg-slate-800 dark:hover:bg-slate-100 text-white dark:text-slate-950 font-bold text-sm shadow-xs transition-colors flex items-center justify-center gap-2 cursor-pointer"
+              className="w-full py-3 px-4 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-bold text-sm shadow-xs transition-colors flex items-center justify-center gap-2 cursor-pointer"
             >
               <Upload className="w-4 h-4" />
               <span>Browse Image File</span>
@@ -463,15 +463,15 @@ export default function IngredientScanner({ onAnalyze, loading }) {
 
           {/* OCR Processing State */}
           {ocrStatus === 'processing' && (
-            <div className="p-3.5 rounded-xl bg-slate-100 dark:bg-slate-800/40 border border-slate-200 dark:border-white/5 space-y-2">
-              <div className="flex items-center justify-between text-xs font-semibold text-slate-700 dark:text-slate-300">
+            <div className="p-3.5 rounded-xl bg-slate-100 border border-slate-200 space-y-2">
+              <div className="flex items-center justify-between text-xs font-semibold text-slate-700">
                 <span className="flex items-center gap-1.5">
                   <Loader2 className="w-3.5 h-3.5 animate-spin text-emerald-500" />
                   Extracting Text via Tesseract.js...
                 </span>
                 <span className="font-mono text-emerald-500">{ocrProgress}%</span>
               </div>
-              <div className="w-full h-1.5 bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden">
+              <div className="w-full h-1.5 bg-slate-200 rounded-full overflow-hidden">
                 <div 
                   className="h-full bg-emerald-500 transition-all duration-300 rounded-full"
                   style={{ width: `${ocrProgress}%` }}
@@ -481,14 +481,14 @@ export default function IngredientScanner({ onAnalyze, loading }) {
           )}
 
           {ocrStatus === 'done' && (
-            <div className="p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/25 text-xs text-emerald-600 dark:text-emerald-400 flex items-center gap-2">
+            <div className="p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/25 text-xs text-emerald-600 flex items-center gap-2">
               <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0" />
               <span>Text extracted successfully. Please review formulation below.</span>
             </div>
           )}
 
           {ocrStatus === 'notext' && (
-            <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/25 text-xs text-amber-600 dark:text-amber-400 flex items-start gap-2">
+            <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/25 text-xs text-amber-600 flex items-start gap-2">
               <AlertCircle className="w-4 h-4 text-amber-500 shrink-0 mt-0.5" />
               <span>No readable text was detected in this image. Try again with better lighting, or type/paste the ingredient list manually in the text box.</span>
             </div>
@@ -505,10 +505,10 @@ export default function IngredientScanner({ onAnalyze, loading }) {
         {/* Right Column (7 cols): Extracted Text & Analysis Form */}
         <div className="lg:col-span-7 glass-card rounded-2xl p-6 space-y-5">
           <div>
-            <h2 className="font-bold text-slate-900 dark:text-white text-base">
+            <h2 className="font-bold text-slate-900 text-base">
               Product Details & Ingredient Formulation
             </h2>
-            <p className="text-xs text-slate-500 dark:text-slate-400">
+            <p className="text-xs text-slate-500">
               Review extracted text, correct typos if needed, and run the AI adulteration classifier.
             </p>
           </div>
@@ -518,7 +518,7 @@ export default function IngredientScanner({ onAnalyze, loading }) {
             {/* Metadata Inputs (2 cols) */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
-                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                <label className="block text-xs font-semibold text-slate-700 mb-1">
                   Product Name
                 </label>
                 <input
@@ -526,12 +526,12 @@ export default function IngredientScanner({ onAnalyze, loading }) {
                   value={productName}
                   onChange={(e) => setProductName(e.target.value)}
                   placeholder="e.g. Masala Turmeric Powder"
-                  className="w-full px-3 py-2 rounded-xl bg-slate-100 dark:bg-slate-800/60 border border-slate-200 dark:border-white/10 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 text-slate-900 dark:text-white text-sm outline-none"
+                  className="w-full px-3 py-2 rounded-xl bg-slate-100 border border-slate-200 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 text-slate-900 text-sm outline-none"
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                <label className="block text-xs font-semibold text-slate-700 mb-1">
                   Brand / Manufacturer
                 </label>
                 <input
@@ -539,19 +539,19 @@ export default function IngredientScanner({ onAnalyze, loading }) {
                   value={brand}
                   onChange={(e) => setBrand(e.target.value)}
                   placeholder="e.g. Everest / Local Spices"
-                  className="w-full px-3 py-2 rounded-xl bg-slate-100 dark:bg-slate-800/60 border border-slate-200 dark:border-white/10 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 text-slate-900 dark:text-white text-sm outline-none"
+                  className="w-full px-3 py-2 rounded-xl bg-slate-100 border border-slate-200 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 text-slate-900 text-sm outline-none"
                 />
               </div>
             </div>
 
             <div>
-              <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+              <label className="block text-xs font-semibold text-slate-700 mb-1">
                 Product Category
               </label>
               <select
                 value={category}
                 onChange={(e) => setCategory(e.target.value)}
-                className="w-full px-3 py-2 rounded-xl bg-slate-100 dark:bg-slate-800/60 border border-slate-200 dark:border-white/10 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 text-slate-900 dark:text-white text-sm outline-none cursor-pointer"
+                className="w-full px-3 py-2 rounded-xl bg-slate-100 border border-slate-200 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 text-slate-900 text-sm outline-none cursor-pointer"
               >
                 {CATEGORIES.map((cat) => (
                   <option key={cat} value={cat}>{cat}</option>
@@ -562,7 +562,7 @@ export default function IngredientScanner({ onAnalyze, loading }) {
             {/* Extracted Ingredients Text Area */}
             <div>
               <div className="flex items-center justify-between mb-1">
-                <label className="text-xs font-semibold text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
+                <label className="text-xs font-semibold text-slate-700 flex items-center gap-1.5">
                   <Edit3 className="w-3.5 h-3.5 text-emerald-500" />
                   <span>Ingredient List (Extracted / Editable)</span>
                 </label>
@@ -575,7 +575,7 @@ export default function IngredientScanner({ onAnalyze, loading }) {
                 value={extractedText}
                 onChange={(e) => setExtractedText(e.target.value)}
                 placeholder="Captured or typed ingredient formulation will appear here. For example: Wheat flour, palm oil, salt, disodium guanylate, Metanil Yellow..."
-                className="w-full p-3 rounded-xl bg-slate-100 dark:bg-slate-800/60 border border-slate-200 dark:border-white/10 focus:border-emerald-500 focus:bg-white dark:focus:bg-slate-800 focus:ring-1 focus:ring-emerald-500 text-slate-900 dark:text-white text-xs font-mono leading-relaxed outline-none transition-colors"
+                className="w-full p-3 rounded-xl bg-slate-100 border border-slate-200 focus:border-emerald-500 focus:bg-white focus:ring-1 focus:ring-emerald-500 text-slate-900 text-xs font-mono leading-relaxed outline-none transition-colors"
               />
             </div>
 
@@ -601,8 +601,8 @@ export default function IngredientScanner({ onAnalyze, loading }) {
           </form>
 
           {/* Quick Presets Bar */}
-          <div className="pt-3 border-t border-slate-200 dark:border-white/5 space-y-2">
-            <span className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider block">
+          <div className="pt-3 border-t border-slate-200 space-y-2">
+            <span className="text-xs font-bold text-slate-500 uppercase tracking-wider block">
               Or Load Verified Benchmark Presets:
             </span>
             <div className="flex flex-wrap gap-2">
@@ -611,7 +611,7 @@ export default function IngredientScanner({ onAnalyze, loading }) {
                   key={idx}
                   type="button"
                   onClick={() => applyPreset(p)}
-                  className="px-2.5 py-1.5 rounded-lg bg-slate-100 dark:bg-slate-800/60 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 text-xs font-medium transition-colors border border-slate-200 dark:border-white/5 cursor-pointer"
+                  className="px-2.5 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-medium transition-colors border border-slate-200 cursor-pointer"
                 >
                   {p.label}
                 </button>

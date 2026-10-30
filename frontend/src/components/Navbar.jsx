@@ -1,146 +1,174 @@
 import React, { useState } from 'react';
-import { 
-  ShieldCheck, 
-  Barcode, 
-  FileText, 
-  History, 
-  Cpu, 
-  LayoutDashboard, 
-  Sparkles,
-  Menu,
-  X,
-  CheckCircle2
-} from 'lucide-react';
+import { ShieldCheck, Menu, X } from 'lucide-react';
 
-export default function Navbar({ activeTab, setActiveTab, hasAnalysis }) {
+export default function Navbar({ 
+  currentView, 
+  setCurrentView, 
+  activeTab, 
+  setActiveTab, 
+  isAuthenticated, 
+  user, 
+  onLogout 
+}) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
-  const navItems = [
-    { id: 'home', label: 'Dashboard', icon: LayoutDashboard },
-    { id: 'barcode', label: 'Barcode Scanner', icon: Barcode },
-    { id: 'ingredient', label: 'Ingredient OCR', icon: FileText },
-    ...(hasAnalysis ? [{ id: 'analysis', label: 'Product Analysis', icon: Sparkles, badge: 'Active' }] : []),
-    { id: 'history', label: 'Scan History', icon: History },
-    { id: 'models', label: 'ML Benchmarks', icon: Cpu },
-  ];
-
-  const handleNavClick = (tabId) => {
-    setActiveTab(tabId);
-    setMobileMenuOpen(false);
+  const handleLogoClick = () => {
+    if (isAuthenticated) {
+      setCurrentView('app');
+      setActiveTab('home');
+    } else {
+      setCurrentView('landing');
+    }
   };
 
   return (
-    <header className="sticky top-0 z-50 bg-white border-b border-slate-200 shadow-xs">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex items-center justify-between h-16">
-          
-          {/* Logo & Brand Identity */}
-          <div 
-            onClick={() => handleNavClick('home')}
-            className="flex items-center gap-3 cursor-pointer group select-none"
-          >
-            <div className="w-9 h-9 rounded-lg bg-emerald-600 flex items-center justify-center text-white shadow-xs">
-              <ShieldCheck className="w-5 h-5 stroke-[2.2]" />
-            </div>
-            <div className="flex flex-col">
-              <div className="flex items-center gap-1.5">
-                <span className="text-base font-bold text-slate-900 tracking-tight">
-                  FoodGuard
-                </span>
-                <span className="text-[11px] font-bold px-1.5 py-0.5 rounded bg-slate-100 text-slate-600 border border-slate-200">
-                  AI
-                </span>
-              </div>
-              <span className="text-[11px] text-slate-500 font-medium leading-none">
-                Safety & Quality Platform
-              </span>
-            </div>
-          </div>
-
-          {/* Desktop Navigation Links */}
-          <nav className="hidden md:flex items-center gap-1">
-            {navItems.map((item) => {
-              const Icon = item.icon;
-              const isActive = activeTab === item.id;
-              return (
-                <button
-                  key={item.id}
-                  onClick={() => handleNavClick(item.id)}
-                  className={`flex items-center gap-2 px-3.5 py-2 rounded-lg text-sm font-medium transition-colors ${
-                    isActive
-                      ? 'bg-slate-100 text-slate-900 font-semibold shadow-2xs'
-                      : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
-                  }`}
-                >
-                  <Icon className={`w-4 h-4 ${isActive ? 'text-emerald-600' : 'text-slate-400'}`} />
-                  <span>{item.label}</span>
-                  {item.badge && (
-                    <span className="inline-flex items-center px-1.5 py-0.2 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-200">
-                      {item.badge}
-                    </span>
-                  )}
-                </button>
-              );
-            })}
-          </nav>
-
-          {/* Right Status / Actions */}
-          <div className="hidden lg:flex items-center gap-3">
-            <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-medium">
-              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
-              <span>FSSAI 2025 Rules Active</span>
-            </div>
-          </div>
-
-          {/* Mobile Menu Toggle Button */}
-          <div className="flex md:hidden">
-            <button
-              onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-              className="p-2 rounded-lg text-slate-600 hover:text-slate-900 hover:bg-slate-100 transition-colors"
-              aria-label="Toggle Navigation Menu"
-            >
-              {mobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
-            </button>
-          </div>
+    <header className="bg-white border-b border-gray-200 sticky top-0 z-40">
+      <div className="max-w-6xl mx-auto px-4 sm:px-6 h-14 flex items-center justify-between">
+        
+        {/* Simple Text Logo */}
+        <div 
+          onClick={handleLogoClick}
+          className="flex items-center gap-2 cursor-pointer select-none"
+        >
+          <ShieldCheck className="w-5 h-5 text-blue-600" />
+          <span className="text-lg font-bold text-gray-900 tracking-tight">FoodGuard</span>
         </div>
+
+        {/* Desktop Navigation Links */}
+        <nav className="hidden md:flex items-center gap-6 text-sm font-medium text-gray-600">
+          {!isAuthenticated ? (
+            <>
+              <button 
+                onClick={() => setCurrentView('landing')}
+                className={`hover:text-blue-600 transition-colors ${currentView === 'landing' ? 'text-blue-600 font-semibold' : ''}`}
+              >
+                Home
+              </button>
+              <button 
+                onClick={() => { setCurrentView('auth'); }}
+                className="hover:text-blue-600 transition-colors"
+              >
+                Scan Product
+              </button>
+              <button 
+                onClick={() => { setCurrentView('landing'); setTimeout(() => { document.getElementById('about-section')?.scrollIntoView({ behavior: 'smooth' }); }, 100); }}
+                className="hover:text-blue-600 transition-colors"
+              >
+                About
+              </button>
+              <button 
+                onClick={() => setCurrentView('auth')}
+                className="px-3.5 py-1.5 rounded-md bg-blue-600 hover:bg-blue-700 text-white font-medium text-xs transition-colors"
+              >
+                Login
+              </button>
+            </>
+          ) : (
+            <>
+              <button 
+                onClick={() => { setCurrentView('app'); setActiveTab('home'); }}
+                className={`hover:text-blue-600 transition-colors ${activeTab === 'home' ? 'text-blue-600 font-semibold' : ''}`}
+              >
+                Dashboard
+              </button>
+              <button 
+                onClick={() => { setCurrentView('app'); setActiveTab('barcode'); }}
+                className={`hover:text-blue-600 transition-colors ${activeTab === 'barcode' || activeTab === 'ingredient' ? 'text-blue-600 font-semibold' : ''}`}
+              >
+                Scan Product
+              </button>
+              <button 
+                onClick={() => { setCurrentView('app'); setActiveTab('history'); }}
+                className={`hover:text-blue-600 transition-colors ${activeTab === 'history' ? 'text-blue-600 font-semibold' : ''}`}
+              >
+                History
+              </button>
+              <button 
+                onClick={() => { setCurrentView('app'); setActiveTab('consumer'); }}
+                className={`hover:text-blue-600 transition-colors ${activeTab === 'consumer' ? 'text-blue-600 font-semibold' : ''}`}
+              >
+                Profile
+              </button>
+              <button 
+                onClick={onLogout}
+                className="text-gray-500 hover:text-red-600 transition-colors text-xs font-semibold"
+              >
+                Logout
+              </button>
+            </>
+          )}
+        </nav>
+
+        {/* Mobile menu toggle */}
+        <div className="flex md:hidden">
+          <button
+            onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+            className="p-1.5 rounded-md text-gray-600 hover:bg-gray-100"
+          >
+            {mobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
+          </button>
+        </div>
+
       </div>
 
-      {/* Mobile Menu Drawer */}
+      {/* Mobile Drawer */}
       {mobileMenuOpen && (
-        <div className="md:hidden border-t border-slate-200 bg-white px-4 pt-2 pb-4 space-y-1 shadow-lg">
-          {navItems.map((item) => {
-            const Icon = item.icon;
-            const isActive = activeTab === item.id;
-            return (
-              <button
-                key={item.id}
-                onClick={() => handleNavClick(item.id)}
-                className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-lg text-sm font-medium transition-colors ${
-                  isActive
-                    ? 'bg-slate-100 text-slate-900 font-semibold'
-                    : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
-                }`}
+        <div className="md:hidden border-t border-gray-200 bg-white px-4 py-3 space-y-2 text-sm">
+          {!isAuthenticated ? (
+            <>
+              <button 
+                onClick={() => { setCurrentView('landing'); setMobileMenuOpen(false); }}
+                className="block w-full text-left py-1 text-gray-700 hover:text-blue-600 font-medium"
               >
-                <div className="flex items-center gap-2.5">
-                  <Icon className={`w-4 h-4 ${isActive ? 'text-emerald-600' : 'text-slate-400'}`} />
-                  <span>{item.label}</span>
-                </div>
-                {item.badge && (
-                  <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-200">
-                    {item.badge}
-                  </span>
-                )}
+                Home
               </button>
-            );
-          })}
-          
-          <div className="pt-3 mt-2 border-t border-slate-100 flex items-center justify-between text-xs text-slate-500 px-3">
-            <span className="flex items-center gap-1.5">
-              <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
-              FSSAI Rules Engine Live
-            </span>
-            <span className="font-mono text-[11px] text-slate-400">v1.2</span>
-          </div>
+              <button 
+                onClick={() => { setCurrentView('auth'); setMobileMenuOpen(false); }}
+                className="block w-full text-left py-1 text-gray-700 hover:text-blue-600 font-medium"
+              >
+                Scan Product
+              </button>
+              <button 
+                onClick={() => { setCurrentView('auth'); setMobileMenuOpen(false); }}
+                className="block w-full text-left py-1 text-blue-600 font-semibold"
+              >
+                Login
+              </button>
+            </>
+          ) : (
+            <>
+              <button 
+                onClick={() => { setCurrentView('app'); setActiveTab('home'); setMobileMenuOpen(false); }}
+                className="block w-full text-left py-1 text-gray-700 hover:text-blue-600 font-medium"
+              >
+                Dashboard
+              </button>
+              <button 
+                onClick={() => { setCurrentView('app'); setActiveTab('barcode'); setMobileMenuOpen(false); }}
+                className="block w-full text-left py-1 text-gray-700 hover:text-blue-600 font-medium"
+              >
+                Scan Product
+              </button>
+              <button 
+                onClick={() => { setCurrentView('app'); setActiveTab('history'); setMobileMenuOpen(false); }}
+                className="block w-full text-left py-1 text-gray-700 hover:text-blue-600 font-medium"
+              >
+                History
+              </button>
+              <button 
+                onClick={() => { setCurrentView('app'); setActiveTab('consumer'); setMobileMenuOpen(false); }}
+                className="block w-full text-left py-1 text-gray-700 hover:text-blue-600 font-medium"
+              >
+                Profile
+              </button>
+              <button 
+                onClick={() => { onLogout(); setMobileMenuOpen(false); }}
+                className="block w-full text-left py-1 text-red-600 font-medium"
+              >
+                Logout
+              </button>
+            </>
+          )}
         </div>
       )}
     </header>

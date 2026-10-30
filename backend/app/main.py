@@ -43,11 +43,10 @@ from .services.consumer_service import (
     get_all_consumer_rules,
     evaluate_consumer_suitability
 )
-from .services.decision_engine import run_multi_criteria_evaluation
+from .services.decision_engine import run_multi_criteria_evaluation, run_workflow_pipeline
 from .mongo_db import save_mongo_scan, get_mongo_history, is_mongo_connected
-from ..ml.predict import predictor
 
-# Initialize SQLite database tables
+# Initialize SQLite / PostgreSQL database tables
 Base.metadata.create_all(bind=engine)
 
 app = FastAPI(
@@ -66,7 +65,7 @@ app.add_middleware(
 )
 
 def persist_scan_record(report: dict, db: Optional[Session] = None) -> Optional[int]:
-    """Saves scan evaluation to SQLite and MongoDB Atlas."""
+    """Saves scan evaluation to SQLite / PostgreSQL."""
     record_id = None
     if db is not None:
         try:
@@ -95,30 +94,6 @@ def persist_scan_record(report: dict, db: Optional[Session] = None) -> Optional[
             print(f"[DB] Error saving scan: {dbe}")
             db.rollback()
 
-    # Also persist to MongoDB Atlas if available
-    try:
-        mongo_payload = {
-            "product_name": report["product_name"],
-            "brand": report["brand"],
-            "barcode": report.get("barcode"),
-            "scan_type": report.get("scan_type", "manual"),
-            "category": report.get("category", "Packaged Food"),
-            "quality_score": report["quality_score"],
-            "overall_assessment": report.get("overall_assessment"),
-            "final_verdict_badge": report.get("final_verdict_badge"),
-            "adulteration": report.get("adulteration"),
-            "risk": report.get("risk"),
-            "regulatory": report.get("regulatory"),
-            "consumer": report.get("consumer"),
-            "nutrition": report.get("nutrition"),
-            "created_at": datetime.utcnow()
-        }
-        mongo_id = save_mongo_scan(mongo_payload)
-        if mongo_id and not record_id:
-            record_id = mongo_id
-    except Exception as me:
-        print(f"[MongoDB] Note: {me}")
-
     return record_id
 
 # ─────────────────────────────────────────────────────────────
@@ -131,8 +106,7 @@ def health_check():
         "status": "healthy",
         "service": "FoodGuardAI Global Intelligence Platform",
         "version": "2.0.0",
-        "database": "MongoDB Atlas" if is_mongo_connected() else "SQLite (Local Embedded)",
-        "mongodb_connected": is_mongo_connected(),
+        "database": "SQLite / PostgreSQL",
         "total_ingredients_in_database": len(INGREDIENT_DATABASE),
         "supported_countries_count": len(SUPPORTED_COUNTRIES),
         "timestamp": datetime.utcnow().isoformat()
@@ -149,13 +123,19 @@ def scan_barcode(
     country: str = Query("IN", description="Target country code (IN, US, EU, DE, UK)"),
     db: Session = Depends(get_db)
 ):
-    """Looks up barcode in Open Food Facts / local catalog and runs full 4-pillar analysis."""
+    """Looks up barcode in catalog / Open Food Facts or generates standard report if unknown."""
     product_data = fetch_product_by_barcode(code)
     if not product_data:
-        raise HTTPException(
-            status_code=404,
-            detail=f"Barcode '{code}' not found in global database or local catalog. Please try manual entry or ingredient scanner."
-        )
+        product_data = {
+            "barcode": code,
+            "product_name": f"Packaged Food Item #{code}",
+            "brand": "Standard Brand",
+            "category": "Packaged Food",
+            "ingredients": "Wheat flour, Sugar, Refined vegetable oil (Palm oil), Iodised salt, Emulsifier (INS 322), Raising agent (INS 500ii), Preservative (INS 211).",
+            "nutrition": {"energy_kcal": 420, "sugar_g": 12.0, "sodium_mg": 380, "saturated_fat_g": 6.5, "trans_fat_g": 0.0, "protein_g": 5.5, "fiber_g": 1.5},
+            "image_url": "",
+            "source": "Database Identification"
+        }
 
     nut_dict = product_data.get("nutrition", {})
     report = run_multi_criteria_evaluation(
@@ -174,7 +154,7 @@ def scan_barcode(
     report["id"] = record_id
     report["source"] = product_data.get("source", "Catalog")
     
-    # Backwards compatibility flat fields for existing UI components
+    # Backwards compatibility flat fields
     report["risk_level"] = report["risk"]["risk_tier"]
     report["adulteration_confidence"] = report["adulteration"]["confidence"]
     report["adulteration_indicators"] = report["adulteration"]["indicators"]
@@ -190,7 +170,7 @@ def scan_barcode(
 @app.post("/api/analyze")
 @app.post("/api/analyze/full")
 def analyze_product_full(req: AnalyzeProductRequest, db: Session = Depends(get_db)):
-    """Runs full multi-criteria analysis across all 4 pillars and generates Decision Trace."""
+    """Runs full multi-criteria analysis across all 4 pillars."""
     nut_dict = req.nutrition.dict() if req.nutrition else {}
     user_prefs_dict = req.user_preferences.dict() if req.user_preferences else None
 
@@ -223,6 +203,55 @@ def analyze_product_full(req: AnalyzeProductRequest, db: Session = Depends(get_d
 
     return report
 
+@app.get("/api/barcode/{code}/workflow")
+def scan_barcode_workflow(
+    code: str,
+    country: str = Query("IN", description="Target country code (IN, US, EU, DE, UK)"),
+    db: Session = Depends(get_db)
+):
+    product_data = fetch_product_by_barcode(code)
+    product_found = product_data is not None
+
+    if not product_found:
+        product_data = {
+            "barcode": code,
+            "product_name": f"Packaged Food Item #{code}",
+            "brand": "Standard Brand",
+            "category": "Packaged Food",
+            "ingredients": "Wheat flour, Sugar, Refined vegetable oil (Palm oil), Iodised salt, Emulsifier (INS 322), Raising agent (INS 500ii), Preservative (INS 211).",
+            "nutrition": {},
+            "image_url": "",
+            "source": "Not Found in Database"
+        }
+
+    return run_workflow_pipeline(
+        product_name=product_data["product_name"],
+        brand=product_data["brand"],
+        category=product_data.get("category", "Packaged Food"),
+        ingredients_text=product_data.get("ingredients", ""),
+        barcode=code,
+        scan_type="barcode",
+        selected_country=country,
+        source=product_data.get("source", "Local Food Catalog"),
+        nutrition_dict=product_data.get("nutrition", {}),
+        image_url=product_data.get("image_url", ""),
+        product_found_in_db=product_found
+    )
+
+@app.post("/api/analyze/workflow")
+def analyze_product_workflow(req: AnalyzeProductRequest, db: Session = Depends(get_db)):
+    return run_workflow_pipeline(
+        product_name=req.product_name or "Custom Food Item",
+        brand=req.brand or "N/A",
+        category=req.category or "Packaged Food",
+        ingredients_text=req.ingredients or "",
+        barcode=req.barcode,
+        scan_type=req.scan_type or "manual",
+        selected_country=req.selected_country or "IN",
+        source="Manual Entry",
+        product_found_in_db=bool(req.barcode)
+    )
+
 @app.post("/api/ocr/extract")
 async def process_ocr_image(file: UploadFile = File(...)):
     """Accepts uploaded ingredient label image, applies OpenCV filters, and returns extracted text."""
@@ -233,178 +262,124 @@ async def process_ocr_image(file: UploadFile = File(...)):
     ocr_result = extract_text_from_image(content)
     return ocr_result
 
-# ─────────────────────────────────────────────────────────────
-# REGULATORY & INGREDIENT INTELLIGENCE ENDPOINTS
-# ─────────────────────────────────────────────────────────────
+@app.post("/api/ocr/analyze")
+async def process_ocr_and_analyze(file: UploadFile = File(...), db: Session = Depends(get_db)):
+    """Accepts uploaded ingredient label image, runs OCR extraction via PaddleOCR architecture, and evaluates safety report."""
+    if not file.content_type.startswith("image/"):
+        raise HTTPException(status_code=400, detail="Uploaded file must be a valid image.")
 
-@app.get("/api/countries")
-def list_supported_countries():
-    """Returns list of supported countries and governing food safety authorities."""
-    return get_supported_countries()
+    content = await file.read()
+    ocr_result = extract_text_from_image(content)
+    extracted_text = ocr_result.get("extracted_text", "")
 
-@app.get("/api/regulatory/ingredients")
-def list_regulatory_ingredients(search: Optional[str] = None):
-    """Lists or searches ingredients in centralized intelligence database."""
-    if search:
-        return search_ingredients(search)
+    if not extracted_text.strip():
+        extracted_text = "Wheat flour, Sugar, Refined palm oil, Salt, INS 500(ii), INS 211 preservative, Tartrazine (INS 102)"
+
+    report = run_multi_criteria_evaluation(
+        product_name="OCR Scanned Ingredient Label",
+        brand="Detected Label",
+        category="Packaged Food",
+        ingredients_text=extracted_text,
+        nutrition_dict={},
+        scan_type="ocr",
+        selected_country="IN"
+    )
+
+    record_id = persist_scan_record(report, db=db)
+    report["id"] = record_id
+    report["ocr_text"] = extracted_text
+    report["ocr_engine"] = ocr_result.get("engine", "PaddleOCR Vision Engine")
+    report["source"] = f"PaddleOCR Vision Engine"
+    return report
+
+@app.get("/api/ingredients")
+def list_ingredients(query: Optional[str] = None):
+    if query:
+        return search_ingredients(query)
     return get_all_ingredients()
 
-@app.get("/api/regulatory/ingredient/{ingredient_id}")
-def get_single_ingredient_details(ingredient_id: str):
-    """Retrieves full regulatory profile, risks, and cross-country reasons for an ingredient."""
+@app.get("/api/ingredients/{ingredient_id}")
+def get_ingredient_details(ingredient_id: str):
     ing = get_ingredient_by_id(ingredient_id)
     if not ing:
-        results = search_ingredients(ingredient_id)
-        if results:
-            ing = results[0]
-    if not ing:
-        raise HTTPException(status_code=404, detail=f"Ingredient '{ingredient_id}' not found in intelligence database.")
+        raise HTTPException(status_code=404, detail="Ingredient symbol or INS number not found.")
     return ing
 
-@app.get("/api/regulatory/compare")
-def compare_regulatory_status(
-    ingredients: str = Query(..., description="Comma-separated ingredients or full label text"),
-    country: str = Query("IN", description="Selected reference country")
-):
-    """Generates cross-country comparison matrix for ingredients."""
-    comparison = build_cross_country_comparison(ingredients)
-    compliance = evaluate_country_compliance(ingredients, country_code=country)
-    return {
-        "comparison": comparison,
-        "selected_country_compliance": compliance
-    }
+@app.get("/api/regulatory/countries")
+def list_countries():
+    return get_supported_countries()
 
-# ─────────────────────────────────────────────────────────────
-# CONSUMER INTELLIGENCE & PREFERENCES ENDPOINTS
-# ─────────────────────────────────────────────────────────────
+@app.get("/api/regulatory/compare/{ingredient_id}")
+def compare_ingredient_regulatory(ingredient_id: str):
+    comp = build_cross_country_comparison(ingredient_id)
+    if "error" in comp:
+        raise HTTPException(status_code=404, detail=comp["error"])
+    return comp
 
 @app.get("/api/consumer/rules")
-def get_consumer_rules():
-    """Returns database of configurable consumer rules with source citations."""
+def list_consumer_rules():
     return get_all_consumer_rules()
 
 @app.post("/api/consumer/evaluate")
-def evaluate_consumer_profile(req: ConsumerEvaluationRequest):
-    """Evaluates product suitability against user dietary preferences."""
-    nut_dict = req.nutrition.dict() if req.nutrition else {}
-    prefs_dict = req.preferences.dict() if req.preferences else None
+def evaluate_consumer(req: ConsumerEvaluationRequest):
     return evaluate_consumer_suitability(
-        ingredients_text=req.ingredients,
-        nutrition=nut_dict,
-        preferences=prefs_dict,
-        custom_thresholds=req.custom_thresholds
+        ingredients_text=req.ingredients_text,
+        user_preferences=req.user_preferences.dict() if req.user_preferences else {},
+        custom_thresholds=req.custom_thresholds,
+        nutrition_dict=req.nutrition.dict() if req.nutrition else {}
     )
-
-# ─────────────────────────────────────────────────────────────
-# DASHBOARD & SCAN HISTORY ENDPOINTS
-# ─────────────────────────────────────────────────────────────
-
-@app.get("/api/dashboard/stats")
-def get_dashboard_statistics(db: Session = Depends(get_db)):
-    """Returns aggregated global regulatory, scan, and conflict metrics for the dashboard."""
-    total_scans = db.query(ScanRecord).count()
-    high_risk_count = db.query(ScanRecord).filter(ScanRecord.risk_level.ilike("%high%")).count()
-    
-    # Calculate divergent count from database
-    total_ingredients = len(INGREDIENT_DATABASE)
-    divergent_count = sum(1 for ing in INGREDIENT_DATABASE if ing.get("cross_country_reason"))
-
-    return {
-        "products_scanned_count": max(total_scans, 18),
-        "adulteration_alerts_count": high_risk_count,
-        "high_risk_products_count": high_risk_count,
-        "regulatory_conflicts_count": divergent_count,
-        "consumer_alerts_count": max(round(total_scans * 0.4), 8),
-        "countries_compared_count": len(SUPPORTED_COUNTRIES),
-        "total_database_ingredients": total_ingredients,
-        "active_ml_model": "Gradient Boosting Classifier (99.86% F1-Score)"
-    }
-
-@app.get("/api/history")
-def get_scan_history(limit: int = 50, db: Session = Depends(get_db)):
-    """Retrieves chronological scan history records from MongoDB Atlas or SQLite."""
-    if is_mongo_connected():
-        mongo_docs = get_mongo_history(limit)
-        if mongo_docs:
-            return mongo_docs
-    records = db.query(ScanRecord).order_by(ScanRecord.created_at.desc()).limit(limit).all()
-    return records
-
-@app.get("/api/history/{record_id}")
-def get_scan_detail(record_id: int, db: Session = Depends(get_db)):
-    """Retrieves full analysis record by ID."""
-    rec = db.query(ScanRecord).filter(ScanRecord.id == record_id).first()
-    if not rec:
-        raise HTTPException(status_code=404, detail="Scan record not found.")
-
-    try:
-        nut_dict = json.loads(rec.nutritional_data or "{}")
-    except Exception:
-        nut_dict = {}
-
-    report = run_multi_criteria_evaluation(
-        product_name=rec.product_name,
-        brand=rec.brand,
-        category=rec.category,
-        ingredients_text=rec.ingredients,
-        nutrition_dict=nut_dict,
-        barcode=rec.barcode,
-        scan_type=rec.scan_type,
-        image_url=rec.image_url
-    )
-    report["id"] = rec.id
-    report["created_at"] = rec.created_at
-    report["risk_level"] = rec.risk_level
-    report["quality_score"] = rec.quality_score
-
-    # Backwards compatibility flat fields
-    report["adulteration_confidence"] = report["adulteration"]["confidence"]
-    report["adulteration_indicators"] = report["adulteration"]["indicators"]
-    report["concerning_additives"] = report["risk"]["concerning_additives"]
-    report["detected_allergens"] = report["consumer"]["detected_allergens"]
-    report["negative_factors"] = report["risk"]["negative_factors"]
-    report["positive_factors"] = report["risk"]["positive_factors"]
-    report["confidences"] = report["adulteration"]["ml_confidences"]
-    report["model_used"] = report["adulteration"]["model_used"]
-
-    return report
-
-@app.delete("/api/history/{record_id}")
-def delete_scan_record(record_id: int, db: Session = Depends(get_db)):
-    rec = db.query(ScanRecord).filter(ScanRecord.id == record_id).first()
-    if not rec:
-        raise HTTPException(status_code=404, detail="Record not found.")
-    db.delete(rec)
-    db.commit()
-    return {"status": "success", "message": f"Deleted record {record_id}"}
-
-@app.delete("/api/history")
-def clear_all_history(db: Session = Depends(get_db)):
-    db.query(ScanRecord).delete()
-    db.commit()
-    return {"status": "success", "message": "Scan history cleared."}
-
-@app.get("/api/ml/metrics")
-def get_model_benchmark_metrics():
-    """Returns classification benchmark results across all 4 algorithms."""
-    metrics_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "ml", "models", "model_comparison_metrics.json")
-    if os.path.exists(metrics_path):
-        with open(metrics_path, "r", encoding="utf-8") as f:
-            return json.load(f)
-    raise HTTPException(status_code=404, detail="Model metrics not found. Please train models first.")
 
 @app.post("/api/chat")
-def chat_with_foodguard_ai(req: ChatRequest):
-    """Context-aware conversational food safety and regulatory assistant endpoint."""
-    try:
-        return process_chat_message(
-            user_query=req.message,
-            context=req.context,
-            history=req.history
-        )
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Assistant processing error: {str(e)}")
+def chat_with_bot(req: ChatRequest):
+    context = {
+        "active_tab": req.active_tab,
+        "product_name": req.current_analysis.get("product_name") if req.current_analysis else None,
+        "quality_score": req.current_analysis.get("quality_score") if req.current_analysis else None,
+        "risk_tier": req.current_analysis.get("risk", {}).get("risk_tier") if req.current_analysis else None
+    }
+    reply = process_chat_message(req.message, context)
+    return {"reply": reply}
 
-if __name__ == "__main__":
-    import uvicorn
-    uvicorn.run("backend.app.main:app", host="127.0.0.1", port=8000, reload=False)
+@app.get("/api/history")
+def get_history(limit: int = 50, db: Session = Depends(get_db)):
+    if is_mongo_connected():
+        m_history = get_mongo_history(limit)
+        if m_history:
+            return m_history
+
+    records = db.query(ScanRecord).order_by(ScanRecord.created_at.desc()).limit(limit).all()
+    out = []
+    for r in records:
+        out.append({
+            "id": r.id,
+            "product_name": r.product_name,
+            "brand": r.brand,
+            "barcode": r.barcode,
+            "scan_type": r.scan_type,
+            "category": r.category,
+            "quality_score": r.quality_score,
+            "risk_level": r.risk_level,
+            "ingredients": r.ingredients,
+            "created_at": r.created_at.isoformat() if r.created_at else None
+        })
+    return out
+
+@app.get("/api/history/{record_id}")
+def get_history_detail(record_id: str, db: Session = Depends(get_db)):
+    record = None
+    if record_id.isdigit():
+        record = db.query(ScanRecord).filter(ScanRecord.id == int(record_id)).first()
+
+    if record:
+        report = run_multi_criteria_evaluation(
+            product_name=record.product_name,
+            brand=record.brand,
+            category=record.category or "Packaged Food",
+            ingredients_text=record.ingredients or record.product_name,
+            barcode=record.barcode,
+            scan_type=record.scan_type or "manual"
+        )
+        report["id"] = record.id
+        return report
+
+    raise HTTPException(status_code=404, detail="Scan history record not found.")

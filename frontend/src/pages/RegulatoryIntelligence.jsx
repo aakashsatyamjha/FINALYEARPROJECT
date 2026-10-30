@@ -73,7 +73,7 @@ export default function RegulatoryIntelligence({ onSelectProductForAnalysis }) {
     switch (statusCode) {
       case 'PERMITTED':
         return (
-          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30 text-xs font-semibold">
+          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-emerald-500/15 text-emerald-600 border border-emerald-500/30 text-xs font-semibold">
             <CheckCircle2 className="w-3.5 h-3.5" />
             <span>Permitted</span>
           </span>
@@ -82,14 +82,14 @@ export default function RegulatoryIntelligence({ onSelectProductForAnalysis }) {
       case 'PERMITTED_WITH_CONDITIONS':
       case 'RESTRICTED':
         return (
-          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-amber-500/15 text-amber-600 dark:text-amber-400 border border-amber-500/30 text-xs font-semibold">
+          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-amber-500/15 text-amber-600 border border-amber-500/30 text-xs font-semibold">
             <AlertTriangle className="w-3.5 h-3.5" />
             <span>{statusText.includes('restriction') ? 'Restricted' : 'Conditional / Limits'}</span>
           </span>
         );
       case 'NOT_PERMITTED':
         return (
-          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-rose-500/15 text-rose-600 dark:text-rose-400 border border-rose-500/30 text-xs font-semibold">
+          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-rose-500/15 text-rose-600 border border-rose-500/30 text-xs font-semibold">
             <XCircle className="w-3.5 h-3.5" />
             <span>Not Permitted / Banned</span>
           </span>
@@ -109,14 +109,14 @@ export default function RegulatoryIntelligence({ onSelectProductForAnalysis }) {
       
       {/* ── Page Header ── */}
       <div className="space-y-2">
-        <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-600 dark:text-emerald-400 text-xs font-bold uppercase tracking-wider">
+        <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-600 text-xs font-bold uppercase tracking-wider">
           <Globe className="w-3.5 h-3.5" />
           <span>Global Regulatory Intelligence</span>
         </div>
-        <h1 className="text-2xl lg:text-3xl font-extrabold text-slate-900 dark:text-white tracking-tight">
+        <h1 className="text-2xl lg:text-3xl font-extrabold text-slate-900 tracking-tight">
           Food Additive & Substance Regulatory Knowledge Base
         </h1>
-        <p className="text-sm text-slate-600 dark:text-slate-400 max-w-3xl">
+        <p className="text-sm text-slate-600 max-w-3xl">
           Search and compare verified food safety regulations, maximum permissible limits, and scientific rationale across India (FSSAI), USA (FDA), European Union (EFSA), Germany (BVL), and the UK (FSA).
         </p>
       </div>
@@ -132,7 +132,7 @@ export default function RegulatoryIntelligence({ onSelectProductForAnalysis }) {
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="Search by ingredient name, INS/E number (e.g. E171, Tartrazine, TBHQ, MSG)..."
-            className="w-full pl-10 pr-4 py-2.5 rounded-xl glass-card text-sm text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500/50 transition-all"
+            className="w-full pl-10 pr-4 py-2.5 rounded-xl glass-card text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500/50 transition-all"
           />
         </div>
 
@@ -142,7 +142,7 @@ export default function RegulatoryIntelligence({ onSelectProductForAnalysis }) {
           <select
             value={selectedCategory}
             onChange={(e) => setSelectedCategory(e.target.value)}
-            className="w-full pl-10 pr-4 py-2.5 rounded-xl glass-card text-sm text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-emerald-500/50 transition-all cursor-pointer appearance-none"
+            className="w-full pl-10 pr-4 py-2.5 rounded-xl glass-card text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-500/50 transition-all cursor-pointer appearance-none"
           >
             {categories.map((cat) => (
               <option key={cat} value={cat} className="bg-slate-900 text-white">
@@ -160,7 +160,7 @@ export default function RegulatoryIntelligence({ onSelectProductForAnalysis }) {
         {/* Left Column: Ingredient Catalog List */}
         <div className="lg:col-span-5 space-y-3">
           <div className="flex items-center justify-between px-1">
-            <span className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+            <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">
               Ingredients ({filteredIngredients.length})
             </span>
             <span className="text-[11px] text-slate-400">Click to view global profile</span>
@@ -186,21 +186,21 @@ export default function RegulatoryIntelligence({ onSelectProductForAnalysis }) {
                       p-3.5 rounded-xl transition-all cursor-pointer border text-left
                       ${isSelected 
                         ? 'bg-emerald-500/15 border-emerald-500/40 shadow-sm' 
-                        : 'glass-card hover:bg-slate-100 dark:hover:bg-slate-800/60 border-slate-200/60 dark:border-white/5'
+                        : 'glass-card hover:bg-slate-100 border-slate-200/60'
                       }
                     `}
                   >
                     <div className="flex items-start justify-between gap-2">
                       <div className="space-y-1">
                         <div className="flex items-center gap-2">
-                          <span className="text-xs font-bold text-slate-900 dark:text-white">
+                          <span className="text-xs font-bold text-slate-900">
                             {ing.common_name}
                           </span>
-                          <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300">
+                          <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-slate-200 text-slate-700">
                             {ing.ins_e_number}
                           </span>
                         </div>
-                        <p className="text-[11px] text-slate-500 dark:text-slate-400 line-clamp-1">
+                        <p className="text-[11px] text-slate-500 line-clamp-1">
                           {ing.function} • {ing.category}
                         </p>
                       </div>
@@ -227,21 +227,21 @@ export default function RegulatoryIntelligence({ onSelectProductForAnalysis }) {
             <div className="glass-card rounded-2xl p-6 border space-y-6 sticky top-24">
               
               {/* Header Profile */}
-              <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4 pb-4 border-b border-slate-200 dark:border-white/5">
+              <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4 pb-4 border-b border-slate-200">
                 <div className="space-y-1">
                   <div className="flex items-center gap-2 flex-wrap">
-                    <h2 className="text-xl font-bold text-slate-900 dark:text-white">
+                    <h2 className="text-xl font-bold text-slate-900">
                       {selectedIngredient.common_name}
                     </h2>
                     <span className="text-xs font-mono font-bold px-2 py-0.5 rounded-lg bg-emerald-500/20 text-emerald-500 border border-emerald-500/30">
                       {selectedIngredient.ins_e_number}
                     </span>
                   </div>
-                  <p className="text-xs text-slate-500 dark:text-slate-400 font-mono">
+                  <p className="text-xs text-slate-500 font-mono">
                     {selectedIngredient.scientific_name}
                   </p>
-                  <p className="text-xs font-semibold text-slate-700 dark:text-slate-300">
-                    Category: <span className="text-emerald-600 dark:text-emerald-400">{selectedIngredient.category}</span> ({selectedIngredient.function})
+                  <p className="text-xs font-semibold text-slate-700">
+                    Category: <span className="text-emerald-600">{selectedIngredient.category}</span> ({selectedIngredient.function})
                   </p>
                 </div>
 
@@ -260,14 +260,14 @@ export default function RegulatoryIntelligence({ onSelectProductForAnalysis }) {
               {/* Cross-Country Rationale Highlight Box */}
               {selectedIngredient.cross_country_reason && (
                 <div className="p-4 rounded-xl bg-gradient-to-r from-amber-500/15 via-orange-500/10 to-amber-500/5 border border-amber-500/30 space-y-2">
-                  <div className="flex items-center gap-2 text-xs font-bold text-amber-600 dark:text-amber-400">
+                  <div className="flex items-center gap-2 text-xs font-bold text-amber-600">
                     <Scale className="w-4 h-4" />
                     <span>Why Regulatory Status Differs Across Countries</span>
                   </div>
-                  <p className="text-xs text-slate-700 dark:text-slate-300 leading-relaxed">
+                  <p className="text-xs text-slate-700 leading-relaxed">
                     {selectedIngredient.cross_country_reason}
                   </p>
-                  <div className="flex items-center gap-1.5 text-[11px] text-slate-500 dark:text-slate-400 pt-1">
+                  <div className="flex items-center gap-1.5 text-[11px] text-slate-500 pt-1">
                     <BookOpen className="w-3.5 h-3.5 text-slate-400" />
                     <span>Source: {selectedIngredient.evidence_source}</span>
                   </div>
@@ -276,7 +276,7 @@ export default function RegulatoryIntelligence({ onSelectProductForAnalysis }) {
 
               {/* Country Comparison Cards */}
               <div className="space-y-3">
-                <h3 className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider flex items-center gap-2">
+                <h3 className="text-xs font-bold text-slate-500 uppercase tracking-wider flex items-center gap-2">
                   <Globe className="w-3.5 h-3.5 text-emerald-500" />
                   <span>Country-by-Country Regulatory Status</span>
                 </h3>
@@ -284,67 +284,67 @@ export default function RegulatoryIntelligence({ onSelectProductForAnalysis }) {
                 <div className="grid grid-cols-1 gap-3">
                   
                   {/* India (FSSAI) */}
-                  <div className="p-3.5 rounded-xl bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-white/5 space-y-1.5">
+                  <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200 space-y-1.5">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2">
                         <span className="text-base">🇮🇳</span>
-                        <span className="text-xs font-bold text-slate-900 dark:text-white">India (FSSAI)</span>
+                        <span className="text-xs font-bold text-slate-900">India (FSSAI)</span>
                       </div>
                       {getStatusBadge(selectedIngredient.india_status.code, selectedIngredient.india_status.status)}
                     </div>
-                    <p className="text-xs text-slate-600 dark:text-slate-300">
-                      <span className="font-semibold text-slate-500 dark:text-slate-400">Limit:</span> {selectedIngredient.india_status.max_limit}
+                    <p className="text-xs text-slate-600">
+                      <span className="font-semibold text-slate-500">Limit:</span> {selectedIngredient.india_status.max_limit}
                     </p>
-                    <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                    <p className="text-[11px] text-slate-500">
                       {selectedIngredient.india_status.condition}
                     </p>
                   </div>
 
                   {/* USA (FDA) */}
-                  <div className="p-3.5 rounded-xl bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-white/5 space-y-1.5">
+                  <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200 space-y-1.5">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2">
                         <span className="text-base">🇺🇸</span>
-                        <span className="text-xs font-bold text-slate-900 dark:text-white">USA (FDA)</span>
+                        <span className="text-xs font-bold text-slate-900">USA (FDA)</span>
                       </div>
                       {getStatusBadge(selectedIngredient.usa_status.code, selectedIngredient.usa_status.status)}
                     </div>
-                    <p className="text-xs text-slate-600 dark:text-slate-300">
-                      <span className="font-semibold text-slate-500 dark:text-slate-400">Limit:</span> {selectedIngredient.usa_status.max_limit}
+                    <p className="text-xs text-slate-600">
+                      <span className="font-semibold text-slate-500">Limit:</span> {selectedIngredient.usa_status.max_limit}
                     </p>
-                    <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                    <p className="text-[11px] text-slate-500">
                       {selectedIngredient.usa_status.condition}
                     </p>
                   </div>
 
                   {/* European Union (EFSA) */}
-                  <div className="p-3.5 rounded-xl bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-white/5 space-y-1.5">
+                  <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200 space-y-1.5">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2">
                         <span className="text-base">🇪🇺</span>
-                        <span className="text-xs font-bold text-slate-900 dark:text-white">European Union (EFSA)</span>
+                        <span className="text-xs font-bold text-slate-900">European Union (EFSA)</span>
                       </div>
                       {getStatusBadge(selectedIngredient.eu_status.code, selectedIngredient.eu_status.status)}
                     </div>
-                    <p className="text-xs text-slate-600 dark:text-slate-300">
-                      <span className="font-semibold text-slate-500 dark:text-slate-400">Limit:</span> {selectedIngredient.eu_status.max_limit}
+                    <p className="text-xs text-slate-600">
+                      <span className="font-semibold text-slate-500">Limit:</span> {selectedIngredient.eu_status.max_limit}
                     </p>
-                    <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                    <p className="text-[11px] text-slate-500">
                       {selectedIngredient.eu_status.condition}
                     </p>
                   </div>
 
                   {/* Germany (BVL) */}
-                  <div className="p-3.5 rounded-xl bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-white/5 space-y-1.5">
+                  <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200 space-y-1.5">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2">
                         <span className="text-base">🇩🇪</span>
-                        <span className="text-xs font-bold text-slate-900 dark:text-white">Germany (BVL / EU Baseline)</span>
+                        <span className="text-xs font-bold text-slate-900">Germany (BVL / EU Baseline)</span>
                       </div>
                       {getStatusBadge(selectedIngredient.germany_status.code, selectedIngredient.germany_status.status)}
                     </div>
-                    <p className="text-xs text-slate-600 dark:text-slate-300">
-                      <span className="font-semibold text-slate-500 dark:text-slate-400">National Decree:</span> {selectedIngredient.germany_status.condition}
+                    <p className="text-xs text-slate-600">
+                      <span className="font-semibold text-slate-500">National Decree:</span> {selectedIngredient.germany_status.condition}
                     </p>
                   </div>
 
@@ -353,13 +353,13 @@ export default function RegulatoryIntelligence({ onSelectProductForAnalysis }) {
 
               {/* Consumer Concerns Tags */}
               {selectedIngredient.consumer_concerns && selectedIngredient.consumer_concerns.length > 0 && (
-                <div className="space-y-2 pt-2 border-t border-slate-200 dark:border-white/5">
-                  <span className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+                <div className="space-y-2 pt-2 border-t border-slate-200">
+                  <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">
                     Consumer & Health Concerns
                   </span>
                   <div className="flex flex-wrap gap-1.5">
                     {selectedIngredient.consumer_concerns.map((c, i) => (
-                      <span key={i} className="text-xs px-2.5 py-1 rounded-lg bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-300 dark:border-white/10">
+                      <span key={i} className="text-xs px-2.5 py-1 rounded-lg bg-slate-200 text-slate-700 border border-slate-300">
                         ⚠️ {c}
                       </span>
                     ))}

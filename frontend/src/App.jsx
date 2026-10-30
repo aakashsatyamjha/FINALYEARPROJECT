@@ -1,150 +1,58 @@
 import React, { useState, useEffect } from 'react';
-import { ThemeProvider } from './context/ThemeContext';
 import { AuthProvider, useAuth } from './context/AuthContext';
-import Sidebar from './components/Sidebar';
-import Header from './components/Header';
-import SettingsModal from './components/SettingsModal';
-import HelpModal from './components/HelpModal';
-import SplashAnimation from './components/SplashAnimation';
+import Navbar from './components/Navbar';
 import Chatbot from './components/Chatbot';
+
 import LandingPage from './pages/LandingPage';
 import AuthPage from './pages/AuthPage';
 import Home from './pages/Home';
 import BarcodeScanner from './pages/BarcodeScanner';
-import IngredientScanner from './pages/IngredientScanner';
 import ProductAnalysis from './pages/ProductAnalysis';
-import RegulatoryIntelligence from './pages/RegulatoryIntelligence';
-import ConsumerIntelligence from './pages/ConsumerIntelligence';
 import ScanHistory from './pages/ScanHistory';
-import ModelExplorer from './pages/ModelExplorer';
+import ConsumerIntelligence from './pages/ConsumerIntelligence';
 
 function AppContent() {
-  const { isAuthenticated, isOpeningSplashActive, triggerOpeningSplash } = useAuth();
+  const { isAuthenticated, logout } = useAuth();
 
-  // Navigation View: 'landing' | 'auth' | 'app' (Persisted across page refreshes)
+  // Navigation View: 'landing' | 'auth' | 'app'
   const [currentView, setCurrentView] = useState(() => {
     try {
       const saved = sessionStorage.getItem('foodguard_current_view');
       if (saved) return saved;
-      return 'auth';
+      return 'landing';
     } catch {
-      return 'auth';
-    }
-  });
-  const [authInitialMode, setAuthInitialMode] = useState('login'); // 'login' | 'signup'
-
-  // Chatbot Assistant State
-  const [isChatOpen, setIsChatOpen] = useState(false);
-  const [chatInitialQuery, setChatInitialQuery] = useState(null);
-
-  // Active Tab & Analysis State (Persisted across page refreshes)
-  const [activeTab, setActiveTab] = useState(() => {
-    try {
-      const saved = sessionStorage.getItem('foodguard_active_tab');
-      return saved || 'home';
-    } catch {
-      return 'home';
+      return 'landing';
     }
   });
 
-  const [currentAnalysis, setCurrentAnalysis] = useState(() => {
-    try {
-      const saved = sessionStorage.getItem('foodguard_current_analysis');
-      return saved ? JSON.parse(saved) : null;
-    } catch {
-      return null;
-    }
-  });
+  const [authInitialMode, setAuthInitialMode] = useState('login');
+
+  // Active Tab inside Authenticated App: 'home' | 'barcode' | 'ingredient' | 'analysis' | 'history' | 'consumer'
+  const [activeTab, setActiveTab] = useState('home');
+  const [currentAnalysis, setCurrentAnalysis] = useState(null);
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
-  const [sampleBarcodes, setSampleBarcodes] = useState([]);
 
-  // Auto-sync navigation and report state with sessionStorage
   useEffect(() => {
     try {
       sessionStorage.setItem('foodguard_current_view', currentView);
-    } catch (e) {
-      console.warn("Storage sync notice:", e);
-    }
+    } catch (e) {}
   }, [currentView]);
 
-  useEffect(() => {
+  const safeFetchWithTimeout = async (url, options = {}, timeoutMs = 25000) => {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), timeoutMs);
     try {
-      sessionStorage.setItem('foodguard_active_tab', activeTab);
-    } catch (e) {
-      console.warn("Storage sync notice:", e);
-    }
-  }, [activeTab]);
-
-  useEffect(() => {
-    try {
-      if (currentAnalysis) {
-        sessionStorage.setItem('foodguard_current_analysis', JSON.stringify(currentAnalysis));
-      } else {
-        sessionStorage.removeItem('foodguard_current_analysis');
+      const response = await fetch(url, { ...options, signal: controller.signal });
+      clearTimeout(timer);
+      return response;
+    } catch (err) {
+      clearTimeout(timer);
+      if (err.name === 'AbortError') {
+        throw new Error('Network request timed out. Please check your connection or backend server.');
       }
-    } catch (e) {
-      console.warn("Storage sync notice:", e);
-    }
-  }, [currentAnalysis]);
-  
-  // Persistent User Preferences & Thresholds
-  const [userPreferences, setUserPreferences] = useState(() => {
-    try {
-      const saved = localStorage.getItem('foodguard_user_preferences');
-      return saved ? JSON.parse(saved) : {
-        low_sugar: true,
-        low_sodium: false,
-        high_protein: false,
-        vegetarian: true,
-        vegan: false,
-        gluten_free: false,
-        allergen_safe: false,
-        low_additives: true,
-        low_processed: true
-      };
-    } catch {
-      return { vegetarian: true, low_sugar: true, low_additives: true };
-    }
-  });
-
-  const [customThresholds, setCustomThresholds] = useState(() => {
-    try {
-      const saved = localStorage.getItem('foodguard_user_thresholds');
-      return saved ? JSON.parse(saved) : {
-        sugar_max: 5.0,
-        sodium_max: 140.0,
-        protein_min: 8.0,
-        additives_max: 3
-      };
-    } catch {
-      return { sugar_max: 5.0, sodium_max: 140.0, protein_min: 8.0, additives_max: 3 };
-    }
-  });
-
-  const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [settingsOpen, setSettingsOpen] = useState(false);
-  const [helpOpen, setHelpOpen] = useState(false);
-
-  const openChatWithQuery = (query) => {
-    setChatInitialQuery(query);
-    setIsChatOpen(true);
-  };
-
-  useEffect(() => {
-    fetchSamples();
-  }, []);
-
-  const fetchSamples = async () => {
-    try {
-      const res = await fetch('/api/samples');
-      if (res.ok) {
-        const data = await res.json();
-        setSampleBarcodes(data);
-      }
-    } catch (e) {
-      console.log("Samples fetch note:", e);
+      throw err;
     }
   };
 
@@ -152,10 +60,10 @@ function AppContent() {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch(`/api/barcode/${barcode}?country=IN`);
+      const res = await safeFetchWithTimeout(`/api/barcode/${barcode}?country=IN`);
       if (!res.ok) {
         const errData = await res.json().catch(() => ({}));
-        throw new Error(errData.detail || `Product with barcode ${barcode} could not be retrieved from the catalog.`);
+        throw new Error(errData.detail || `Product with barcode ${barcode} could not be retrieved.`);
       }
       const data = await res.json();
       setCurrentAnalysis(data);
@@ -163,29 +71,29 @@ function AppContent() {
       setCurrentView('app');
     } catch (err) {
       console.error(err);
-      setError(err.message);
+      setError(err.message || 'Error occurred while scanning barcode.');
     } finally {
       setLoading(false);
     }
   };
 
-  const handleCustomAnalyze = async (payload) => {
+  const handleAnalyzeIngredients = async (ingredientsText, productName = "Custom Food Product") => {
     setLoading(true);
     setError(null);
     try {
-      const fullPayload = {
-        ...payload,
-        user_preferences: userPreferences,
-        custom_thresholds: customThresholds
-      };
-      const res = await fetch('/api/analyze/full', {
+      const res = await safeFetchWithTimeout('/api/analyze', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(fullPayload)
+        body: JSON.stringify({
+          product_name: productName,
+          ingredients: ingredientsText,
+          selected_country: 'IN',
+          category: 'Packaged Food'
+        })
       });
       if (!res.ok) {
         const errData = await res.json().catch(() => ({}));
-        throw new Error(errData.detail || 'Analysis could not be completed.');
+        throw new Error(errData.detail || 'Ingredient evaluation could not be completed.');
       }
       const data = await res.json();
       setCurrentAnalysis(data);
@@ -193,7 +101,34 @@ function AppContent() {
       setCurrentView('app');
     } catch (err) {
       console.error(err);
-      setError(err.message);
+      setError(err.message || 'Error occurred while evaluating ingredients.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleImageUpload = async (file) => {
+    setLoading(true);
+    setError(null);
+    try {
+      const formData = new FormData();
+      if (file) formData.append('file', file);
+      
+      const res = await safeFetchWithTimeout('/api/ocr/analyze', {
+        method: 'POST',
+        body: formData
+      }, 35000); // Allow 35s for deep image OCR
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        throw new Error(errData.detail || 'Image OCR analysis could not be completed.');
+      }
+      const data = await res.json();
+      setCurrentAnalysis(data);
+      setActiveTab('analysis');
+      setCurrentView('app');
+    } catch (err) {
+      console.error(err);
+      setError(err.message || 'Error occurred during image OCR processing.');
     } finally {
       setLoading(false);
     }
@@ -216,208 +151,178 @@ function AppContent() {
     }
   };
 
-  const handleSavePreferences = (newPrefs, newThresholds) => {
-    setUserPreferences(newPrefs);
-    if (newThresholds) setCustomThresholds(newThresholds);
+  const handleLogout = () => {
+    logout();
+    setCurrentView('landing');
   };
 
-  const handleHeaderSearch = (query) => {
-    if (!query) return;
-    if (/^\d{8,14}$/.test(query.trim())) {
-      handleBarcodeScan(query.trim());
-    } else {
-      setActiveTab('history');
-      setCurrentView('app');
-    }
-  };
-
-  // 1. Landing Page View (Public Homepage)
-  if (currentView === 'landing') {
+  // 1. Authentication View
+  if (!isAuthenticated && currentView === 'auth') {
     return (
-      <LandingPage 
-        onGetStarted={() => {
-          if (isAuthenticated) {
-            triggerOpeningSplash(() => setCurrentView('app'));
-          } else {
-            setAuthInitialMode('signup');
-            setCurrentView('auth');
-          }
-        }}
-        onSignIn={() => {
-          if (isAuthenticated) {
-            triggerOpeningSplash(() => setCurrentView('app'));
-          } else {
-            setAuthInitialMode('login');
-            setCurrentView('auth');
-          }
-        }}
-        onOpenDashboard={() => {
-          triggerOpeningSplash(() => setCurrentView('app'));
-        }}
-      />
-    );
-  }
-
-  // 2. Authentication View (Login, Signup, Forgot Password)
-  if (currentView === 'auth' || !isAuthenticated) {
-    return (
-      <AuthPage 
+      <AuthPage
         initialMode={authInitialMode}
         onBackToHome={() => setCurrentView('landing')}
         onAuthSuccess={() => {
           setActiveTab('home');
           setCurrentView('app');
-        }} 
+        }}
       />
     );
   }
 
-  // 3. Authenticated App & Dashboard View
-  return (
-    <div className="min-h-screen flex text-slate-900 dark:text-slate-100 font-sans selection:bg-emerald-500 selection:text-slate-950 relative">
-      
-      {/* ── FoodGuard Opening / Splash Screen Animation ── */}
-      {isOpeningSplashActive && (
-        <SplashAnimation onComplete={() => {}} />
-      )}
-
-      {/* ── Sidebar Navigation ── */}
-      <Sidebar 
-        activeTab={activeTab}
-        setActiveTab={setActiveTab}
-        hasAnalysis={Boolean(currentAnalysis)}
-        sidebarOpen={sidebarOpen}
-        setSidebarOpen={setSidebarOpen}
-        onOpenSettings={() => setSettingsOpen(true)}
-        onOpenHelp={() => setHelpOpen(true)}
-        onGoToLanding={() => setCurrentView('landing')}
-      />
-
-      {/* ── Main Layout Wrapper (offset for fixed sidebar on lg+) ── */}
-      <div className="flex-1 flex flex-col min-w-0 lg:pl-64 transition-all duration-300">
-        
-        {/* Top Header */}
-        <Header 
-          onToggleSidebar={() => setSidebarOpen(!sidebarOpen)}
-          onSearchSubmit={handleHeaderSearch}
-          onOpenSettings={() => setSettingsOpen(true)}
-          onOpenHelp={() => setHelpOpen(true)}
-          onGoToLanding={() => setCurrentView('landing')}
-        />
-
-        {/* Workspace Canvas */}
-        <main className="flex-1 max-w-7xl w-full mx-auto p-4 sm:p-6 lg:p-8">
-          {activeTab === 'home' && (
-            <Home 
-              setActiveTab={setActiveTab} 
-              onSelectSample={handleBarcodeScan}
-              onOpenChat={openChatWithQuery} 
-            />
-          )}
-
-          {activeTab === 'barcode' && (
-            <BarcodeScanner 
-              onScanSuccess={handleBarcodeScan}
-              loading={loading}
-              error={error}
-              sampleBarcodes={sampleBarcodes}
-            />
-          )}
-
-          {activeTab === 'ingredient' && (
-            <IngredientScanner 
-              onAnalyze={handleCustomAnalyze}
-              loading={loading}
-            />
-          )}
-
-          {activeTab === 'analysis' && currentAnalysis && (
-            <ProductAnalysis 
-              data={currentAnalysis}
-              onReset={() => {
-                setCurrentAnalysis(null);
-                setActiveTab('barcode');
-              }}
-              onOpenChat={openChatWithQuery}
-            />
-          )}
-
-          {activeTab === 'regulatory' && (
-            <RegulatoryIntelligence 
-              onSelectProductForAnalysis={handleBarcodeScan}
-            />
-          )}
-
-          {activeTab === 'consumer' && (
-            <ConsumerIntelligence 
-              userPreferences={userPreferences}
-              onSavePreferences={handleSavePreferences}
-              onTestScan={handleBarcodeScan}
-            />
-          )}
-
-          {activeTab === 'history' && (
-            <ScanHistory 
-              onSelectRecord={handleSelectHistoryRecord}
-            />
-          )}
-
-          {activeTab === 'models' && (
-            <ModelExplorer />
-          )}
-        </main>
-
-        {/* Clean Dashboard Footer */}
-        <footer className="border-t border-slate-200 dark:border-white/5 py-4 px-6 text-center text-xs text-slate-500 dark:text-slate-400 no-print flex flex-col sm:flex-row items-center justify-between gap-2">
-          <p>
-            FoodGuard AI • Food Safety + Adulteration Screening + Global Regulatory + Consumer Intelligence Platform
-          </p>
-          <button
-            onClick={() => setCurrentView('landing')}
-            className="text-emerald-500 hover:text-emerald-400 font-semibold cursor-pointer"
-          >
-            ← View Public Homepage
-          </button>
-        </footer>
-
-      </div>
-
-      {/* ── FoodGuard AI Chatbot Assistant (Global) ── */}
-      <Chatbot 
-        isOpen={isChatOpen}
-        onToggle={() => setIsChatOpen(!isChatOpen)}
-        currentAnalysis={currentAnalysis}
-        activeTab={activeTab}
-        initialQuery={chatInitialQuery}
-        userPreferences={userPreferences}
-        onNavigateToAnalysis={() => {
-          setActiveTab('analysis');
-          setIsChatOpen(false);
+  // 2. Landing Page View for non-authenticated users
+  if (!isAuthenticated) {
+    return (
+      <LandingPage
+        onScanProduct={() => {
+          setAuthInitialMode('login');
+          setCurrentView('auth');
+        }}
+        onUploadIngredients={() => {
+          setAuthInitialMode('login');
+          setCurrentView('auth');
+        }}
+        onSignIn={() => {
+          setAuthInitialMode('login');
+          setCurrentView('auth');
+        }}
+        onOpenDashboard={() => {
+          setCurrentView('app');
+          setActiveTab('home');
         }}
       />
+    );
+  }
 
-      {/* Settings Modal */}
-      <SettingsModal 
-        isOpen={settingsOpen}
-        onClose={() => setSettingsOpen(false)}
+  // 3. Authenticated App View
+  return (
+    <div className="min-h-screen bg-gray-50 text-gray-900 font-sans flex flex-col justify-between">
+      
+      {/* Navbar */}
+      <Navbar
+        currentView={currentView}
+        setCurrentView={setCurrentView}
+        activeTab={activeTab}
+        setActiveTab={setActiveTab}
+        isAuthenticated={isAuthenticated}
+        onLogout={handleLogout}
       />
 
-      {/* Help Modal */}
-      <HelpModal 
-        isOpen={helpOpen}
-        onClose={() => setHelpOpen(false)}
-      />
+      {/* Main Container */}
+      <main className="flex-1 max-w-5xl w-full mx-auto p-4 sm:p-6 my-4">
+        {error && (
+          <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded text-xs text-red-900 flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <span className="font-bold text-red-700">Notice:</span>
+              <span>{error}</span>
+            </div>
+            <button
+              onClick={() => setError(null)}
+              className="text-red-700 hover:text-red-900 font-bold px-2 py-0.5 rounded cursor-pointer"
+            >
+              ✕
+            </button>
+          </div>
+        )}
+
+        {activeTab === 'home' && (
+          <Home
+            setActiveTab={setActiveTab}
+            onSelectSample={handleBarcodeScan}
+          />
+        )}
+
+        {(activeTab === 'barcode' || activeTab === 'ingredient') && (
+          <BarcodeScanner
+            onScanSuccess={handleBarcodeScan}
+            onAnalyzeIngredients={handleAnalyzeIngredients}
+            onAnalyzeImage={handleImageUpload}
+            loading={loading}
+            error={error}
+          />
+        )}
+
+        {activeTab === 'analysis' && (
+          <ProductAnalysis
+            data={currentAnalysis}
+            onReset={() => {
+              setCurrentAnalysis(null);
+              setActiveTab('barcode');
+            }}
+          />
+        )}
+
+        {activeTab === 'history' && (
+          <ScanHistory
+            onSelectRecord={handleSelectHistoryRecord}
+          />
+        )}
+
+        {activeTab === 'consumer' && (
+          <ConsumerIntelligence
+            onTestScan={handleBarcodeScan}
+          />
+        )}
+      </main>
+
+      {/* Footer */}
+      <footer className="border-t border-gray-200 bg-white py-4 px-6 text-center text-xs text-gray-500">
+        FoodGuard — Packaged Food Safety & Regulatory Assessment System (Capstone Project)
+      </footer>
+
+      {/* Floating Chatbot Assistant */}
+      <Chatbot />
 
     </div>
   );
 }
 
+class ErrorBoundary extends React.Component {
+  constructor(props) {
+    super(props);
+    this.state = { hasError: false, error: null };
+  }
+
+  static getDerivedStateFromError(error) {
+    return { hasError: true, error };
+  }
+
+  componentDidCatch(error, errorInfo) {
+    console.error("ErrorBoundary caught an error:", error, errorInfo);
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4 font-sans text-gray-900">
+          <div className="bg-white border border-gray-200 rounded-lg p-6 max-w-md w-full text-center space-y-4">
+            <h2 className="text-lg font-bold text-gray-900">Something went wrong</h2>
+            <p className="text-xs text-gray-600">
+              A temporary camera or display error occurred. Please click below to return to the home screen.
+            </p>
+            <button
+              onClick={() => {
+                this.setState({ hasError: false });
+                window.location.reload();
+              }}
+              className="px-4 py-2 rounded bg-blue-600 hover:bg-blue-700 text-white font-medium text-xs cursor-pointer"
+            >
+              Reload Application
+            </button>
+          </div>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
+
 export default function App() {
   return (
-    <ThemeProvider>
+    <ErrorBoundary>
       <AuthProvider>
         <AppContent />
       </AuthProvider>
-    </ThemeProvider>
+    </ErrorBoundary>
   );
 }

@@ -11,6 +11,7 @@ from .adulteration_service import analyze_ingredients_text, DISCLAIMER_TEXT
 from .ingredient_intelligence import match_ingredient_text, get_supported_countries
 from .regulatory_service import evaluate_country_compliance, build_cross_country_comparison
 from .consumer_service import evaluate_consumer_suitability
+from .dataset_service import match_ingredients_against_dataset, evaluate_dataset_permissions
 from ...ml.predict import predictor
 
 def run_multi_criteria_evaluation(
@@ -45,11 +46,16 @@ def run_multi_criteria_evaluation(
 
     # ── STEP 1: Ingredient Identification & Normalization ──
     matched_ingredients = match_ingredient_text(ingredients_text)
+    
+    # ── 300-Item Regulatory Dataset Matching & Permissions Audit ──
+    dataset_matches = match_ingredients_against_dataset(ingredients_text)
+    dataset_eval = evaluate_dataset_permissions(dataset_matches)
+
     decision_steps.append({
         "step_num": 1,
         "title": "Ingredient Identification & Entity Normalization",
-        "status": "PASS" if matched_ingredients else "INFO",
-        "detail": f"Matched {len(matched_ingredients)} standardized food ingredients against the centralized intelligence database.",
+        "status": "PASS" if matched_ingredients or dataset_matches else "INFO",
+        "detail": f"Matched {len(matched_ingredients)} standardized ingredients and {len(dataset_matches)} regulatory substances against the 300-item dataset.",
         "icon": "ListChecks"
     })
 
@@ -243,15 +249,22 @@ def run_multi_criteria_evaluation(
     else:
         risk_tier = "Low Risk"
 
+    if dataset_eval.get("overall_risk") == "HIGH":
+        overall_risk_pct = max(overall_risk_pct, 75)
+        risk_tier = "High Risk"
+    elif dataset_eval.get("overall_risk") == "MEDIUM" and risk_tier == "Low Risk":
+        overall_risk_pct = max(overall_risk_pct, 45)
+        risk_tier = "Moderate Risk"
+
     # ── Holistic Multi-Pillar Quality & Safety Score (0-100) ──
     base_ml_score = ml_res["quality_score"]
     safety_score = max(5, 100 - overall_risk_pct)
 
-    if has_critical_adulterant:
-        quality_score = max(5, min(22, safety_score))
+    if has_critical_adulterant or dataset_eval.get("overall_risk") == "HIGH":
+        quality_score = max(5, min(28, safety_score))
     elif selected_country_eval["verdict"] == "FAIL":
         quality_score = max(10, min(38, round(safety_score * 0.7 + base_ml_score * 0.3)))
-    elif selected_country_eval["verdict"] == "CONDITIONAL" or cross_country_data["divergence_count"] > 0:
+    elif selected_country_eval["verdict"] == "CONDITIONAL" or cross_country_data["divergence_count"] > 0 or dataset_eval.get("has_alerts"):
         quality_score = max(25, min(65, round(safety_score * 0.6 + base_ml_score * 0.4)))
     elif risk_tier == "Moderate Risk" or consumer_eval["verdict"] == "CONCERN":
         quality_score = max(40, min(72, round(safety_score * 0.5 + base_ml_score * 0.5)))
@@ -260,6 +273,20 @@ def run_multi_criteria_evaluation(
 
     # ── Why This Product is Not 100/100 (Score Deduction Audit) ──
     score_deductions = []
+
+    # ── 300-Item Dataset Score Deductions & Alerts ──
+    if dataset_eval.get("has_alerts"):
+        for alert_item in dataset_eval.get("alerts", []):
+            is_banned = "banned" in alert_item.get("alert_reason", "").lower() or "revoked" in alert_item.get("alert_reason", "").lower()
+            pts = 40 if is_banned else 20
+            score_deductions.append({
+                "factor": f"{alert_item['ingredient_name']} ({alert_item['ins_number']})",
+                "category": "Regulatory Alert / International Restriction",
+                "impact": f"-{pts} pts",
+                "points_deducted": pts,
+                "reason": alert_item["alert_reason"],
+                "prohibited_in": alert_item["flagged_authorities"]
+            })
     
     if has_critical_adulterant:
         for ind in adulteration_indicators:
@@ -501,6 +528,341 @@ def run_multi_criteria_evaluation(
         "parsed_ingredients": adulteration_res.get("parsed_ingredients", []),
         "nutrition": nutrition_dict,
         "image_url": image_url,
-        "created_at": datetime.utcnow()
+        "created_at": datetime.utcnow(),
+
+        # 300-Item Dataset & International Regulatory Permissions
+        "dataset_eval": dataset_eval,
+        "regulatory_alerts": dataset_eval.get("alerts", []),
+        "has_regulatory_alerts": dataset_eval.get("has_alerts", False),
+        "clean_ingredients": dataset_eval.get("clean_ingredients", []),
+        "dataset_matches": dataset_matches
     }
 
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# WORKFLOW PIPELINE ENGINE — Sequential 5-Step Analysis
+# ─────────────────────────────────────────────────────────────────────────────
+
+def run_workflow_pipeline(
+    product_name: str,
+    brand: str,
+    category: str,
+    ingredients_text: str,
+    barcode=None,
+    scan_type: str = "barcode",
+    selected_country: str = "IN",
+    source: str = "Local Food Catalog",
+    nutrition_dict=None,
+    image_url=None,
+    product_found_in_db: bool = True
+) -> dict:
+    """
+    Executes the explicit 5-step workflow pipeline:
+      Step 1 -> Dataset Lookup: Was the product found?
+      Step 2 -> Ingredient Extraction: All detected ingredients/additives
+      Step 3 -> Dataset Pass/Fail Check: Per-ingredient regulatory check
+      Step 4 -> INS Alert Report: Deep-dive for flagged ingredients
+      Step 5 -> Final Verdict: Overall risk classification
+    """
+    from .regulatory_service import STATUS_BADGES, get_country_status_key
+    import re as _re
+
+    if nutrition_dict is None:
+        nutrition_dict = {}
+
+    pipeline_steps = []
+
+    # ── STEP 1: Dataset Lookup ──
+    step1 = {
+        "step_num": 1,
+        "name": "Dataset Lookup",
+        "icon": "Database",
+        "status": "PASS" if product_found_in_db else "INFO",
+        "status_label": "Found in Database" if product_found_in_db else "Live API / Manual Entry",
+        "color": "green" if product_found_in_db else "blue",
+        "detail": (
+            f"Product '{product_name}' by {brand} found in local verified catalog."
+            if product_found_in_db
+            else "Product not in local catalog. Data from Open Food Facts API or manual entry."
+        ),
+        "data": {
+            "product_name": product_name,
+            "brand": brand,
+            "category": category,
+            "barcode": barcode,
+            "source": source
+        }
+    }
+    pipeline_steps.append(step1)
+
+    # ── STEP 2: Ingredient Extraction ──
+    matched_ingredients = match_ingredient_text(ingredients_text)
+    raw_tokens = [t.strip() for t in _re.split(r"[,;:\n\r]+", ingredients_text) if len(t.strip()) > 2]
+    known_ins = [
+        {
+            "name": i["common_name"],
+            "ins_e_number": i["ins_e_number"],
+            "function": i["function"],
+            "risk": i["risk_classification"],
+            "matched_text": i["matched_text"]
+        }
+        for i in matched_ingredients
+    ]
+
+    step2 = {
+        "step_num": 2,
+        "name": "Ingredient Extraction",
+        "icon": "ListChecks",
+        "status": "PASS",
+        "status_label": f"{len(raw_tokens)} ingredients · {len(matched_ingredients)} additives matched to DB",
+        "color": "blue",
+        "detail": (
+            f"Extracted {len(raw_tokens)} ingredients from label. "
+            f"Matched {len(matched_ingredients)} against INS/E-number regulatory database."
+        ),
+        "data": {
+            "raw_tokens": raw_tokens[:25],
+            "matched_additives": known_ins,
+            "total_raw": len(raw_tokens),
+            "total_matched": len(matched_ingredients)
+        }
+    }
+    pipeline_steps.append(step2)
+
+    # ── STEP 3: Dataset Pass/Fail Check ──
+    country_key = get_country_status_key(selected_country)
+    country_meta = next(
+        (c for c in get_supported_countries() if c["code"] == selected_country.upper()),
+        {"code": "IN", "name": "India", "authority": "FSSAI", "flag": "\U0001f1ee\U0001f1f3"}
+    )
+
+    pass_items = []
+    alert_items = []
+    banned_items = []
+
+    for ing in matched_ingredients:
+        c_status = ing.get(country_key, {})
+        sc = c_status.get("code", "INSUFFICIENT_DATA")
+        check_item = {
+            "name": ing["common_name"],
+            "ins_e_number": ing["ins_e_number"],
+            "function": ing["function"],
+            "risk_classification": ing["risk_classification"],
+            "status_code": sc,
+            "status_text": c_status.get("status", "Unknown"),
+            "condition": c_status.get("condition", ""),
+            "max_limit": c_status.get("max_limit", ""),
+            "source": c_status.get("source", ""),
+            "country": country_meta["name"],
+            "authority": country_meta["authority"],
+            "flag": country_meta["flag"],
+            "cross_country_reason": ing.get("cross_country_reason", "")
+        }
+        if sc == "NOT_PERMITTED":
+            banned_items.append(check_item)
+            alert_items.append(check_item)
+        elif sc in ["PERMITTED_WITH_LIMITS", "PERMITTED_WITH_CONDITIONS", "RESTRICTED"]:
+            alert_items.append(check_item)
+        else:
+            pass_items.append(check_item)
+
+    has_banned = len(banned_items) > 0
+    has_alerts = len(alert_items) > 0
+
+    if has_banned:
+        s3s, s3c = "FAIL", "red"
+        s3l = f"{len(banned_items)} BANNED/NOT PERMITTED · {len(alert_items) - len(banned_items)} conditional"
+    elif has_alerts:
+        s3s, s3c = "CONDITIONAL", "orange"
+        s3l = f"All pass · {len(alert_items)} ingredient(s) with conditions/limits"
+    else:
+        s3s, s3c = "PASS", "green"
+        s3l = f"All {len(pass_items)} recognized ingredients PASS regulatory check"
+
+    step3 = {
+        "step_num": 3,
+        "name": f"Dataset Check ({country_meta['flag']} {country_meta['name']} / {country_meta['authority']})",
+        "icon": "ShieldAlert" if has_banned else "ShieldCheck",
+        "status": s3s,
+        "status_label": s3l,
+        "color": s3c,
+        "detail": (
+            f"Each ingredient cross-referenced against {country_meta['name']} "
+            f"({country_meta['authority']}) regulatory database."
+        ),
+        "data": {
+            "country": country_meta["name"],
+            "authority": country_meta["authority"],
+            "flag": country_meta["flag"],
+            "passed": pass_items,
+            "alerts": alert_items,
+            "banned": banned_items,
+            "pass_count": len(pass_items),
+            "alert_count": len(alert_items),
+            "banned_count": len(banned_items)
+        }
+    }
+    pipeline_steps.append(step3)
+
+    # ── STEP 4: INS Alert Report ──
+    all_cc = {
+        "IN": {"name": "India", "authority": "FSSAI", "flag": "\U0001f1ee\U0001f1f3"},
+        "US": {"name": "USA", "authority": "FDA", "flag": "\U0001f1fa\U0001f1f8"},
+        "EU": {"name": "European Union", "authority": "EFSA", "flag": "\U0001f1ea\U0001f1fa"},
+        "DE": {"name": "Germany", "authority": "BVL", "flag": "\U0001f1e9\U0001f1ea"},
+        "UK": {"name": "United Kingdom", "authority": "FSA", "flag": "\U0001f1ec\U0001f1e7"},
+    }
+
+    ins_reports = []
+    for ing in matched_ingredients:
+        c_status = ing.get(country_key, {})
+        sc = c_status.get("code", "INSUFFICIENT_DATA")
+        if sc in ["NOT_PERMITTED", "PERMITTED_WITH_LIMITS", "PERMITTED_WITH_CONDITIONS", "RESTRICTED"]:
+            matrix = []
+            for cc, cl in all_cc.items():
+                ck2 = get_country_status_key(cc)
+                cs2 = ing.get(ck2, {})
+                sc2 = cs2.get("code", "INSUFFICIENT_DATA")
+                badge = STATUS_BADGES.get(sc2, STATUS_BADGES["INSUFFICIENT_DATA"])
+                matrix.append({
+                    "country_code": cc,
+                    "country_name": cl["name"],
+                    "authority": cl["authority"],
+                    "flag": cl["flag"],
+                    "status": cs2.get("status", "Unknown"),
+                    "status_code": sc2,
+                    "badge_label": badge["label"],
+                    "badge_symbol": badge["symbol"],
+                    "badge_category": badge["category"],
+                    "max_limit": cs2.get("max_limit", "Not specified"),
+                    "condition": cs2.get("condition", ""),
+                    "source": cs2.get("source", "")
+                })
+            ins_reports.append({
+                "ingredient_name": ing["common_name"],
+                "scientific_name": ing.get("scientific_name", ""),
+                "ins_e_number": ing["ins_e_number"],
+                "function": ing["function"],
+                "risk_classification": ing["risk_classification"],
+                "consumer_concerns": ing.get("consumer_concerns", []),
+                "cross_country_reason": ing.get("cross_country_reason", ""),
+                "evidence_source": ing.get("evidence_source", ""),
+                "is_banned_in_selected": sc == "NOT_PERMITTED",
+                "selected_country_status": c_status,
+                "country_matrix": matrix
+            })
+
+    bis = sum(1 for r in ins_reports if r["is_banned_in_selected"]) if ins_reports else 0
+    s4s = ("FAIL" if bis > 0 else "CONDITIONAL") if ins_reports else "PASS"
+    s4c = ("red" if bis > 0 else "orange") if ins_reports else "green"
+    s4l = (
+        f"{len(ins_reports)} investigated · {bis} banned in {country_meta['name']}"
+        if ins_reports
+        else "No alerts triggered — all ingredients clear"
+    )
+    step4 = {
+        "step_num": 4,
+        "name": "INS Alert & Country Report",
+        "icon": "Globe",
+        "status": s4s,
+        "status_label": s4l,
+        "color": s4c,
+        "detail": f"Cross-country INS report for {len(ins_reports)} flagged ingredient(s) across 5 jurisdictions.",
+        "data": {
+            "ins_reports": ins_reports,
+            "total_investigated": len(ins_reports),
+            "banned_in_selected_country": bis
+        }
+    }
+    pipeline_steps.append(step4)
+
+    # ── STEP 5: Final Verdict ──
+    from .adulteration_service import analyze_ingredients_text as _ait
+    adres = _ait(ingredients_text, category)
+    has_crit = adres.get("has_critical_flags", False)
+
+    if has_crit or banned_items:
+        v, vc, vi, rp, rt = "Banned Chemical Detected", "red", "ShieldOff", 90, "High Risk"
+        rec = (
+            "STOP CONSUMING immediately. Contains PROHIBITED or hazardous adulterant ingredients. "
+            "Report to FSSAI/local food authority."
+        )
+    elif len(alert_items) >= 4:
+        v, vc, vi, rp, rt = "High Risk", "red", "AlertOctagon", 72, "High Risk"
+        rec = "Multiple restricted ingredients detected. Avoid or consume with extreme caution."
+    elif len(alert_items) >= 2:
+        v, vc, vi, rp, rt = "Moderate Risk", "orange", "AlertTriangle", 45, "Moderate Risk"
+        rec = (
+            f"Ingredients permitted under {country_meta['name']} regulations but with usage limits. "
+            "Read label warnings. Limit consumption especially for children."
+        )
+    elif len(alert_items) == 1:
+        v, vc, vi, rp, rt = "Low Risk", "yellow", "Info", 22, "Low Risk"
+        rec = "Minor condition detected. Generally safe for adults following label directions."
+    else:
+        v, vc, vi, rp, rt = "Not Compromised", "green", "ShieldCheck", 8, "Low Risk"
+        rec = (
+            f"All ingredients pass {country_meta['name']} ({country_meta['authority']}) check. "
+            "Product appears safe based on ingredient profile."
+        )
+
+    qs = max(10, min(98, 100 - rp))
+    step5 = {
+        "step_num": 5,
+        "name": "Final Verdict",
+        "icon": vi,
+        "status": "FAIL" if rt == "High Risk" else ("CONDITIONAL" if rt == "Moderate Risk" else "PASS"),
+        "status_label": v,
+        "color": vc,
+        "detail": rec,
+        "data": {
+            "verdict": v,
+            "verdict_color": vc,
+            "risk_tier": rt,
+            "risk_pct": rp,
+            "quality_score": qs,
+            "selected_country": selected_country,
+            "country_name": country_meta["name"],
+            "authority": country_meta["authority"],
+            "flag": country_meta["flag"],
+            "recommendation": rec,
+            "summary": {
+                "pass_count": len(pass_items),
+                "alert_count": len(alert_items),
+                "banned_count": len(banned_items),
+                "total_matched": len(matched_ingredients),
+                "has_critical_adulterant": has_crit
+            }
+        }
+    }
+    pipeline_steps.append(step5)
+
+    return {
+        "product_name": product_name,
+        "brand": brand,
+        "barcode": barcode,
+        "category": category,
+        "scan_type": scan_type,
+        "selected_country": selected_country,
+        "country_name": country_meta["name"],
+        "country_flag": country_meta["flag"],
+        "authority": country_meta["authority"],
+        "ingredients_text": ingredients_text,
+        "image_url": image_url,
+        "source": source,
+        "pipeline_steps": pipeline_steps,
+        "total_steps": len(pipeline_steps),
+        "final_verdict": v,
+        "final_verdict_color": vc,
+        "risk_tier": rt,
+        "risk_pct": rp,
+        "quality_score": qs,
+        "matched_ingredients_count": len(matched_ingredients),
+        "pass_count": len(pass_items),
+        "alert_count": len(alert_items),
+        "banned_count": len(banned_items),
+        "has_critical_adulterant": has_crit,
+        "recommendation": rec,
+        "created_at": datetime.utcnow().isoformat()
+    }
